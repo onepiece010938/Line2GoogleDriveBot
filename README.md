@@ -1,0 +1,2 @@
+# Line2GoogleDriveBot
+Line Keep在大檔案的存儲上有時間限制，一不小心就會過期，透過這個bot將檔案存到綁定的google雲端硬碟~
