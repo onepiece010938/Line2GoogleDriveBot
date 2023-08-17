@@ -1,0 +1,74 @@
+name: Build and test Go & Deploy to Lambda
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "master"
+      - "feature-*"
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - "master"
+
+jobs:
+  Go-Test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get project resource
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.19' # The Go version to download (if necessary) and use.
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3.4.0
+        # golangci-lint didn't merge below PR yet
+        # with:
+        #   output-file: golangci-lint.out
+
+      - name: Run testing
+        run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic -json > report.json
+
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+
+      # - name: SonarCloud Scan
+      #   uses: SonarSource/sonarcloud-github-action@master
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  
+          
+  Deploy-to-Lambda:
+    runs-on: ubuntu-latest
+    needs: [Go-Test]
+    if: ${{ github.ref == 'refs/heads/main'}}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Get project resource
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.19' 
+
+      - name: Build Lambda bootstrap
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o bootstrap main.go
+          zip bootstrap.zip bootstrap
+          aws lambda update-function-code --function-name BaoSaveLineBot --zip-file fileb://bootstrap.zip
+
+ 
