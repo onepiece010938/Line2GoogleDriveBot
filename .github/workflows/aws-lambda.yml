@@ -27,7 +27,9 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         # golangci-lint didn't merge below PR yet
-        # with:
+        with:
+          version: v1.53
+          args: --timeout 3m --verbose
         #   output-file: golangci-lint.out
 
       - name: Run testing
