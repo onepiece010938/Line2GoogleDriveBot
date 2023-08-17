@@ -54,8 +54,8 @@ func main() {
 
 	deploy := os.Getenv("DEPLOY_PLATFORM")
 	if deploy == "lambda" {
+		log.Println("deploy:", deploy)
 		rootCtx, _ := context.WithCancel(context.Background()) //nolint
-
 		ssmsvc = NewSSMClient()
 		lineSecret, err := ssmsvc.Param("BAOSAVE_CHANNEL_SECRET", true).GetValue()
 		if err != nil {
@@ -78,6 +78,7 @@ func main() {
 
 		lambda.Start(Handler)
 	} else {
+		log.Println("deploy: local")
 		server.StartServer()
 	}
 

@@ -19,7 +19,7 @@ import (
 	"github.com/onepiece010938/Line2GoogleDriveBot/internal/router"
 )
 
-var PORT int = 6666
+var PORT int = 6006
 
 // func Line() {
 // 	LClient, err = linebot.New(os.Getenv("CHANNEL_SECRET"), os.Getenv("CHANNEL_ACCESS_TOKEN"))
