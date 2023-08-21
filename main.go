@@ -28,13 +28,12 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
+
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/line/line-bot-sdk-go/linebot"
 	"github.com/onepiece010938/Line2GoogleDriveBot/cmd/server"
 	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/cache"
+	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/ssm"
 	"github.com/onepiece010938/Line2GoogleDriveBot/internal/app"
 )
 
@@ -42,7 +41,7 @@ var (
 	ginLambda        *ginadapter.GinLambda
 	cacheLambda      *cache.Cache
 	lineClientLambda *linebot.Client
-	ssmsvc           *SSM
+	ssmsvc           *ssm.SSM
 )
 
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -50,18 +49,17 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func main() {
-	// ssmsvc := NewSSMClient()
-
 	deploy := os.Getenv("DEPLOY_PLATFORM")
 	if deploy == "lambda" {
 		log.Println("deploy:", deploy)
 		rootCtx, _ := context.WithCancel(context.Background()) //nolint
-		ssmsvc = NewSSMClient()
-		lineSecret, err := ssmsvc.Param("BAOSAVE_CHANNEL_SECRET", true).GetValue()
+		ssmsvc = ssm.NewSSM()
+
+		lineSecret, err := ssmsvc.FindParameter(rootCtx, ssmsvc.Client, "BAOSAVE_CHANNEL_SECRET")
 		if err != nil {
 			log.Println(err)
 		}
-		lineAccessToken, err := ssmsvc.Param("BAOSAVE_CHANNEL_ACCESS_TOKEN", true).GetValue()
+		lineAccessToken, err := ssmsvc.FindParameter(rootCtx, ssmsvc.Client, "BAOSAVE_CHANNEL_ACCESS_TOKEN")
 		if err != nil {
 			log.Println(err)
 		}
@@ -82,55 +80,4 @@ func main() {
 		server.StartServer()
 	}
 
-}
-
-// SSM is a SSM API client.
-type SSM struct {
-	client ssmiface.SSMAPI
-}
-
-func Sessions() (*session.Session, error) {
-	sess, err := session.NewSession()
-	svc := session.Must(sess, err)
-	return svc, err
-}
-
-func NewSSMClient() *SSM {
-	// Create AWS Session
-	sess, err := Sessions()
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-	ssmsvc := &SSM{ssm.New(sess)}
-	// Return SSM client
-	return ssmsvc
-}
-
-type Param struct {
-	Name           string
-	WithDecryption bool
-	ssmsvc         *SSM
-}
-
-// Param creates the struct for querying the param store
-func (s *SSM) Param(name string, decryption bool) *Param {
-	return &Param{
-		Name:           name,
-		WithDecryption: decryption,
-		ssmsvc:         s,
-	}
-}
-
-func (p *Param) GetValue() (string, error) {
-	ssmsvc := p.ssmsvc.client
-	parameter, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
-		Name:           &p.Name,
-		WithDecryption: &p.WithDecryption,
-	})
-	if err != nil {
-		return "", err
-	}
-	value := *parameter.Parameter.Value
-	return value, nil
 }

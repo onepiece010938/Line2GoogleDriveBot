@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/line/line-bot-sdk-go/linebot"
 	"github.com/onepiece010938/Line2GoogleDriveBot/internal/app"
+	"golang.org/x/oauth2"
 )
 
 type LineHandler struct {
@@ -90,6 +91,9 @@ func Callback(app *app.Application) gin.HandlerFunc {
 
 func (l *LineHandler) handleText(ctx context.Context, app *app.Application, message *linebot.TextMessage, replyToken string, source *linebot.EventSource) error {
 	switch message.Text {
+	case "login":
+		authURL := CONFIGG.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+		return l.replyText(replyToken, authURL)
 	case "sample":
 		test, err := app.AnalyzeService.AnalyzeTest(ctx)
 		if err != nil {
