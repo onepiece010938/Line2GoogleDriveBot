@@ -2,7 +2,7 @@ package v1
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -130,7 +130,7 @@ func accessToken(code string) (token string, err error) {
 	}
 
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return token, err
 	}
@@ -148,7 +148,7 @@ func getGoogleUserInfo(token string) (id, name string, err error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return id, name, err
 	}
