@@ -49,6 +49,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func main() {
+	// dynamodb.Dynamodb_main()
 	deploy := os.Getenv("DEPLOY_PLATFORM")
 	if deploy == "lambda" {
 		log.Println("deploy:", deploy)
@@ -59,6 +60,8 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
+		log.Println(lineSecret)
+
 		lineAccessToken, err := ssmsvc.FindParameter(rootCtx, ssmsvc.Client, "BAOSAVE_CHANNEL_ACCESS_TOKEN")
 		if err != nil {
 			log.Println(err)
@@ -67,6 +70,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("LineBot Create Success")
 
 		cacheLambda = cache.NewCache(cache.InitBigCache(rootCtx))
 

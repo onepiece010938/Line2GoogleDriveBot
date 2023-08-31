@@ -24,10 +24,11 @@ func Callback(app *app.Application) gin.HandlerFunc {
 		events, err := app.LineBotClient.ParseRequest(c.Request)
 		if err != nil {
 			if err == linebot.ErrInvalidSignature {
-
-				c.JSON(http.StatusBadRequest, nil)
+				log.Println(err)
+				c.JSON(http.StatusBadRequest, err)
 			} else {
-				c.JSON(http.StatusInternalServerError, nil)
+				log.Println(err)
+				c.JSON(http.StatusInternalServerError, err)
 			}
 			return
 		}
@@ -92,7 +93,9 @@ func Callback(app *app.Application) gin.HandlerFunc {
 func (l *LineHandler) handleText(ctx context.Context, app *app.Application, message *linebot.TextMessage, replyToken string, source *linebot.EventSource) error {
 	switch message.Text {
 	case "login":
-		authURL := CONFIGG.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+		// refresh token只有第一次AccessTypeOffline的時候拿的到
+		// 如果要每次都取得，要加ApprovalForce
+		authURL := CONFIGG.AuthCodeURL("state-token", oauth2.AccessTypeOffline) //oauth2.ApprovalForce
 		return l.replyText(replyToken, authURL)
 	case "sample":
 		test, err := app.AnalyzeService.AnalyzeTest(ctx)
@@ -108,6 +111,7 @@ func (l *LineHandler) handleText(ctx context.Context, app *app.Application, mess
 			}
 			if _, err := l.bot.ReplyMessage(
 				replyToken,
+				linebot.NewTextMessage("User ID: "+source.UserID),
 				linebot.NewTextMessage("Display name: "+profile.DisplayName),
 				linebot.NewTextMessage("Status message: "+profile.StatusMessage),
 			).Do(); err != nil {

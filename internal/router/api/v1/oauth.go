@@ -134,8 +134,15 @@ func GetDrive(c *gin.Context) {
 func GoogleLoginNew(c *gin.Context) {
 	authCode := c.Query("code")
 
+	// tokFile := "token.json"
+	// tok, err := tokenFromFile(tokFile)
+	// if err != nil {
+	// 	// tok, _ := CONFIGG.Exchange(context.TODO(), authCode)
+	// 	saveToken(tokFile, tok)
+	// }
 	tok, err := CONFIGG.Exchange(context.TODO(), authCode)
 	CACHE_TOKEN = tok
+	saveToken("token.json", CACHE_TOKEN)
 	log.Println("@@TOKEN: ", tok)
 	if err != nil {
 		log.Printf("Unable to retrieve token from web %v", err)
@@ -160,7 +167,10 @@ func GoogleLoginNew(c *gin.Context) {
 			fmt.Printf("%s (%s)\n", i.Name, i.Id)
 		}
 	}
-
+	_, err = c.Writer.Write([]byte("<html><title>BaoSave Login</title> <body> Authorized successfully, please close this window</body></html>"))
+	if err != nil {
+		log.Printf("Unable to write HTML: %v", err)
+	}
 	// filename := `C:\Users\raymond\Desktop\MyGitRepo\Line2GoogleDriveBot\README.md`
 	// goFile, err := os.Open(filename)
 	// if err != nil {
@@ -204,5 +214,9 @@ func OauthInit() {
 		Scopes:       []string{drive.DriveScope},
 		RedirectURL:  os.Getenv("RedirectURL"),
 	}
+
+	tokFile := "token.json"
+	tok, _ := tokenFromFile(tokFile)
+	CACHE_TOKEN = tok
 
 }
