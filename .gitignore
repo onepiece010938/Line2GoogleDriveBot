@@ -21,3 +21,5 @@
 go.work
 
 .env
+shared-local-instance.db
+token.json
