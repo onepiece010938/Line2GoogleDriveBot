@@ -167,8 +167,10 @@ func GoogleLoginNew(c *gin.Context) {
 			fmt.Printf("%s (%s)\n", i.Name, i.Id)
 		}
 	}
-	c.Writer.Write([]byte("<html><title>BaoSave Login</title> <body> Authorized successfully, please close this window</body></html>"))
-
+	_, err = c.Writer.Write([]byte("<html><title>BaoSave Login</title> <body> Authorized successfully, please close this window</body></html>"))
+	if err != nil {
+		log.Printf("Unable to write HTML: %v", err)
+	}
 	// filename := `C:\Users\raymond\Desktop\MyGitRepo\Line2GoogleDriveBot\README.md`
 	// goFile, err := os.Open(filename)
 	// if err != nil {

@@ -18,7 +18,10 @@ func TestAddGoogleOAuthToken(t *testing.T) {
 		RefreshToken: "test123",
 		Expiry:       "2023-08-22T11:31:54.2936004+08:00",
 	}
-	testTableBasics.AddGoogleOAuthToken(tok)
+	err := testTableBasics.AddGoogleOAuthToken(tok)
+	if err != nil {
+		t.Log("ERROR:", err)
+	}
 }
 
 func TestUpdateGoogleOAuthToken(t *testing.T) {
@@ -29,7 +32,11 @@ func TestUpdateGoogleOAuthToken(t *testing.T) {
 		RefreshToken: "test12345",
 		// Expiry:       "2023-08-22T11:31:54.2936004+08:00",
 	}
-	testTableBasics.UpdateGoogleOAuthToken(tok)
+	output, err := testTableBasics.UpdateGoogleOAuthToken(tok)
+	t.Log("output:", output)
+	if err != nil {
+		t.Log("ERROR:", err)
+	}
 }
 
 func TestTxUpdateGoogleOAuthToken(t *testing.T) {
@@ -40,7 +47,11 @@ func TestTxUpdateGoogleOAuthToken(t *testing.T) {
 		RefreshToken: "test123456",
 		// Expiry:       "2023-08-22T11:31:54.2936004+08:00",
 	}
-	testTableBasics.TxUpdateGoogleOAuthToken(tok)
+	output, err := testTableBasics.TxUpdateGoogleOAuthToken(tok)
+	t.Log("output:", output)
+	if err != nil {
+		t.Log("ERROR:", err)
+	}
 }
 
 func TestGetGoogleOAuthToken(t *testing.T) {
