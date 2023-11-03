@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
+	"github.com/stretchr/testify/assert"
 )
 
 type SSMGetParameterImpl struct{}
@@ -19,7 +20,14 @@ func (dt SSMGetParameterImpl) GetParameter(ctx context.Context,
 	params *ssm.GetParameterInput,
 	optFns ...func(*ssm.Options)) (*ssm.GetParameterOutput, error) {
 
-	parameter := &types.Parameter{Value: aws.String("parameter-value")}
+	var parameter *types.Parameter
+
+	if *params.Name == "secret-name" {
+		parameter = &types.Parameter{Value: aws.String("secret-value")}
+	}
+	if *params.Name == "token-name" {
+		parameter = &types.Parameter{Value: aws.String("token-value")}
+	}
 
 	output := &ssm.GetParameterOutput{
 		Parameter: parameter,
@@ -28,8 +36,41 @@ func (dt SSMGetParameterImpl) GetParameter(ctx context.Context,
 	return output, nil
 }
 
+func (dt SSMGetParameterImpl) GetParameters(ctx context.Context,
+	params *ssm.GetParametersInput,
+	optFns ...func(*ssm.Options)) (*ssm.GetParametersOutput, error) {
+	var parameters []types.Parameter
+
+	for _, name := range params.Names {
+
+		if name == "secret-name" {
+
+			parameter := &types.Parameter{
+				Name:  aws.String(name),
+				Value: aws.String("secret-value"),
+			}
+			parameters = append(parameters, *parameter)
+		}
+		if name == "token-name" {
+			parameter := &types.Parameter{
+				Name:  aws.String(name),
+				Value: aws.String("token-value"),
+			}
+			parameters = append(parameters, *parameter)
+		}
+
+	}
+
+	output := &ssm.GetParametersOutput{
+		Parameters: parameters,
+	}
+
+	return output, nil
+}
+
 type Config struct {
-	ParameterName string `json:"ParameterName"`
+	MockChannelSecret      string `json:"MockChannelSecret"`
+	MockChannelAccessToken string `json:"MockChannelAccessToken"`
 }
 
 var configFileName = "config.json"
@@ -49,8 +90,12 @@ func populateConfiguration(t *testing.T) error {
 		return err
 	}
 
-	if globalConfig.ParameterName == "" {
-		msg := "You must supply a value for ParameterName in " + configFileName
+	if globalConfig.MockChannelSecret == "" {
+		msg := "You must supply a value for MockChannelSecret in " + configFileName
+		return errors.New(msg)
+	}
+	if globalConfig.MockChannelAccessToken == "" {
+		msg := "You must supply a value for MockChannelAccessToken in " + configFileName
 		return errors.New(msg)
 	}
 
@@ -69,18 +114,53 @@ func TestFindParameter(t *testing.T) {
 
 	api := &SSMGetParameterImpl{}
 
-	// input := &ssm.GetParameterInput{
-	// 	Name: &globalConfig.ParameterName,
-	// }
+	respSecret, err := testSSM.FindParameter(context.Background(), *api, globalConfig.MockChannelSecret)
+	assert.NoError(t, err, "Error fetching MockChannelSecret")
 
-	resp, err := testSSM.FindParameter(context.Background(), *api, globalConfig.ParameterName)
-	if err != nil {
-		t.Log("Got an error ...:")
-		t.Log(err)
-		return
+	t.Log("MockChannelSecret value: " + respSecret)
+	assert.Equal(t, "secret-value", respSecret, "Unexpected value for MockChannelSecret")
+
+	respToken, err := testSSM.FindParameter(context.Background(), *api, globalConfig.MockChannelAccessToken)
+	assert.NoError(t, err, "Error fetching MockChannelAccessToken")
+
+	t.Log("MockChannelAccessToken value: " + respToken)
+	assert.Equal(t, "token-value", respToken, "Unexpected value for MockChannelAccessToken")
+}
+
+func TestFindParameters(t *testing.T) {
+	thisTime := time.Now()
+	nowString := thisTime.Format("2006-01-02 15:04:05 Monday")
+	t.Log("Starting unit test at " + nowString)
+
+	// Creating an instance of the SSMGetParameterImpl
+	api := &SSMGetParameterImpl{}
+
+	// Mocking the configuration
+	err := populateConfiguration(t)
+	assert.NoError(t, err, "Error populating configuration")
+
+	// Setting up the testify assertion instance
+
+	// List of parameter names to fetch
+	paramNames := []string{
+		globalConfig.MockChannelSecret,
+		globalConfig.MockChannelAccessToken,
 	}
 
-	t.Log("Parameter value: " + resp)
+	// Testing FindParameters
+	respParameters, err := testSSM.FindParameters(context.Background(), *api, paramNames)
+	assert.NoError(t, err, "Error fetching parameters")
+
+	// Asserting on the response
+	expectedValues := map[string]string{
+		globalConfig.MockChannelSecret:      "secret-value",
+		globalConfig.MockChannelAccessToken: "token-value",
+	}
+
+	for paramName, expectedValue := range expectedValues {
+		assert.Equal(t, expectedValue, respParameters[paramName], "Unexpected value for parameter: "+paramName)
+	}
+
 }
 
 var testSSM *SSM
