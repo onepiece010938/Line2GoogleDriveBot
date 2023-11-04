@@ -397,7 +397,7 @@ func Callback(app *app.Application) gin.HandlerFunc {
 					log.Printf("Got file: %s", content.ContentType)
 					fmt.Printf("File `%s` (%d bytes) received.", message.FileName, message.FileSize)
 
-					app.DriveService.UploadFile(ctx, lineID, message.FileName, content.Content)
+					err = app.DriveService.UploadFile(ctx, lineID, message.FileName, content.Content)
 					if err != nil {
 						log.Println(err)
 						return
