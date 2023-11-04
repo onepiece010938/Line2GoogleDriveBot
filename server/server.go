@@ -47,12 +47,15 @@ func NewGinLambda() *ginadapter.GinLambda {
 	if err != nil {
 		log.Println(err)
 	}
+	log.Println(parameters)
 
 	lineSecret := mustGetValue(parameters, "BAOSAVE_CHANNEL_SECRET")
 	lineAccessToken := mustGetValue(parameters, "BAOSAVE_CHANNEL_ACCESS_TOKEN")
 	googleClientID := mustGetValue(parameters, "GOOGLE_CLIENT_ID")
 	googleClientSecret := mustGetValue(parameters, "GOOGLE_CLIENT_SECRET")
 	redirectURL := mustGetValue(parameters, "REDIRECT_URL")
+	log.Println(lineSecret)
+	log.Println(lineAccessToken)
 	log.Println("Get Parameters From SSM Success")
 
 	lineClientLambda, err := linebot.New(lineSecret, lineAccessToken)
