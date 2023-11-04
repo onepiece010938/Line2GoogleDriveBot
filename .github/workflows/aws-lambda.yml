@@ -29,7 +29,7 @@ jobs:
         # golangci-lint didn't merge below PR yet
         with:
           version: v1.54
-          args: --timeout 3m --verbose
+          # args: --timeout 3m --verbose
         #   output-file: golangci-lint.out
       - name: Setup DynamoDB Local
         uses: rrainn/dynamodb-action@v2.0.1
@@ -74,7 +74,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.19' 
+          go-version: '1.21' 
 
       - name: Build Lambda bootstrap
         run: |
