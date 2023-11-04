@@ -12,7 +12,7 @@ func RegisterRouter(router *gin.RouterGroup, app *app.Application) {
 	{
 		v1.POST("/callback", Callback(app))
 		// Redirect to here
-		v1.GET("/ouath-login", OAuthLogin(app))
+		v1.GET("/oauth-login", OAuthLogin(app))
 
 	}
 }
