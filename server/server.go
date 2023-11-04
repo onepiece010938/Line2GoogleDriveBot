@@ -53,6 +53,7 @@ func NewGinLambda() *ginadapter.GinLambda {
 	googleClientID := mustGetValue(parameters, "GOOGLE_CLIENT_ID")
 	googleClientSecret := mustGetValue(parameters, "GOOGLE_CLIENT_SECRET")
 	redirectURL := mustGetValue(parameters, "REDIRECT_URL")
+	log.Println("Get Parameters From SSM Success")
 
 	lineClientLambda, err := linebot.New(lineSecret, lineAccessToken)
 	if err != nil {
@@ -61,11 +62,15 @@ func NewGinLambda() *ginadapter.GinLambda {
 	log.Println("LineBot Create Success")
 
 	db := dynamodb.NewTableBasics("google-oauth")
+	log.Println("Dynamodb Connect Success")
 
 	oauth := google.NewGoogleOAuth(googleClientID, googleClientSecret, redirectURL)
 
 	app := app.NewApplication(rootCtx, db, oauth, lineClientLambda)
+	log.Println("Application Created")
+
 	ginRouter := initRouter(rootCtx, app)
+	log.Println("GinRouter Init Success")
 	return ginadapter.New(ginRouter)
 }
 
