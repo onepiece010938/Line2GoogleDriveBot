@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
@@ -23,7 +24,8 @@ type SSMGetParameterAPI interface {
 
 func (s *SSM) FindParameter(c context.Context, api SSMGetParameterAPI, name string) (string, error) {
 	input := &ssm.GetParameterInput{
-		Name: &name,
+		Name:           &name,
+		WithDecryption: aws.Bool(true),
 	}
 	results, err := api.GetParameter(c, input)
 	if err != nil {
@@ -37,7 +39,8 @@ func (s *SSM) FindParameter(c context.Context, api SSMGetParameterAPI, name stri
 
 func (s *SSM) FindParameters(c context.Context, api SSMGetParameterAPI, names []string) (map[string]string, error) {
 	input := &ssm.GetParametersInput{
-		Names: names,
+		Names:          names,
+		WithDecryption: aws.Bool(true),
 	}
 	results, err := api.GetParameters(c, input)
 	if err != nil {
