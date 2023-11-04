@@ -3,7 +3,6 @@ module github.com/onepiece010938/Line2GoogleDriveBot
 go 1.21
 
 require (
-	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/aws/aws-lambda-go v1.41.0
 	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.35
@@ -13,11 +12,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.21.5
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.37.4
 	github.com/awslabs/aws-lambda-go-api-proxy v0.14.0
-	github.com/bytedance/sonic v1.10.0
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-ego/gse v0.80.2
 	github.com/joho/godotenv v1.5.1
-	github.com/line/line-bot-sdk-go v7.8.0+incompatible
 	github.com/line/line-bot-sdk-go/v7 v7.21.0
 	github.com/stretchr/testify v1.8.4
 	golang.ngrok.com/ngrok v1.4.1
@@ -40,6 +36,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.15.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.4 // indirect
 	github.com/aws/smithy-go v1.14.2 // indirect
+	github.com/bytedance/sonic v1.10.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -73,7 +70,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
-	github.com/vcaesar/cedar v0.20.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.ngrok.com/muxado/v2 v2.0.0 // indirect
