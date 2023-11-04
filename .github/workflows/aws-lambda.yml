@@ -31,6 +31,15 @@ jobs:
           version: v1.54
           # args: --timeout 3m --verbose
         #   output-file: golangci-lint.out
+      - name: Setup DynamoDB Local
+        uses: rrainn/dynamodb-action@v2.0.1
+        with:
+          dbPath: # undefined by default, if this is undefined inMemory will be used
+          sharedDb: # undefined by default
+          delayTransientStatuses: # undefined by default
+          optimizeDbBeforeStartup: # undefined by default
+          port: 8000
+          cors: '*'
 
       - name: Run testing
         run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic -json > report.json
