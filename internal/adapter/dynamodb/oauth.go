@@ -13,11 +13,11 @@ import (
 )
 
 type GoogleOAuthToken struct {
-	PK           string `dynamodbav:"PK"`
-	AccessToken  string `dynamodbav:"access_token"`
-	TokenType    string `dynamodbav:"token_type"`
-	RefreshToken string `dynamodbav:"refresh_token"`
-	Expiry       string `dynamodbav:"expiry"`
+	PK           string    `dynamodbav:"PK"`
+	AccessToken  string    `dynamodbav:"access_token"`
+	TokenType    string    `dynamodbav:"token_type"`
+	RefreshToken string    `dynamodbav:"refresh_token"`
+	Expiry       time.Time `dynamodbav:"expiry"`
 
 	Info map[string]interface{} `dynamodbav:"info"`
 }
@@ -124,6 +124,11 @@ func (basics TableBasics) TxUpdateGoogleOAuthToken(tok GoogleOAuthToken) (*dynam
 
 	update := expression.Set(expression.Name("refresh_token"), expression.Value(tok.RefreshToken))
 	update.Set(expression.Name("access_token"), expression.Value(tok.AccessToken))
+	// 補上更新其他欄位
+	update.Set(expression.Name("token_type"), expression.Value(tok.TokenType))
+	update.Set(expression.Name("expiry"), expression.Value(tok.Expiry))
+	update.Set(expression.Name("info.upload_folder_id"), expression.Value(tok.Info["upload_folder_id"]))
+
 	expr, err := expression.NewBuilder().WithUpdate(update).Build()
 	if err != nil {
 		log.Printf("Couldn't build expression for update. Here's why: %v\n", err)

@@ -3,30 +3,30 @@ package app
 import (
 	"context"
 
-	"github.com/line/line-bot-sdk-go/linebot"
-	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/cache"
-	serviceAnalyze "github.com/onepiece010938/Line2GoogleDriveBot/internal/app/service/analyze"
-	serviceMessage "github.com/onepiece010938/Line2GoogleDriveBot/internal/app/service/message"
+	"github.com/line/line-bot-sdk-go/v7/linebot"
+
+	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/dynamodb"
+	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/google"
+	serviceDrive "github.com/onepiece010938/Line2GoogleDriveBot/internal/app/service/drive"
+	serviceSample "github.com/onepiece010938/Line2GoogleDriveBot/internal/app/service/sample"
 )
 
 type Application struct {
-	// JobService   *serviceJob.JobService
-	// ImageService *serviceImage.ImageService
-	AnalyzeService *serviceAnalyze.AnalyzeService
-	MessageService *serviceMessage.MessageService
-	LineBotClient  *linebot.Client
+	SampleService *serviceSample.SampleService
+	DriveService  *serviceDrive.GoogleDriveService
+	LineBotClient *linebot.Client
 }
 
-func NewApplication(ctx context.Context, cache cache.CacheI, lineBotClient *linebot.Client) *Application {
+func NewApplication(ctx context.Context, dynamodb dynamodb.DynamodbI, oauth google.GoogleOAuthI, lineBotClient *linebot.Client) *Application {
 
-	// Create application
 	app := &Application{
 		LineBotClient: lineBotClient,
-		MessageService: serviceMessage.NewMessageService(ctx, serviceMessage.MessageServiceParam{
-			MessageServiceCache: cache,
+		SampleService: serviceSample.NewSampleService(ctx, serviceSample.SampleServiceParam{
+			SampleServiceDynamodb: dynamodb,
 		}),
-		AnalyzeService: serviceAnalyze.NewAnalyzeService(ctx, serviceAnalyze.AnalyzeServiceParam{
-			AnalyzeServiceCache: cache,
+		DriveService: serviceDrive.NewGoogleDriveService(ctx, serviceDrive.GoogleDriveServiceParam{
+			DriveServiceGoogleOA: oauth,
+			DriveServiceDynamodb: dynamodb,
 		}),
 	}
 	return app

@@ -24,64 +24,31 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/gin-gonic/gin"
 
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
-	"github.com/line/line-bot-sdk-go/linebot"
-	"github.com/onepiece010938/Line2GoogleDriveBot/cmd/server"
-	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/cache"
-	"github.com/onepiece010938/Line2GoogleDriveBot/internal/adapter/ssm"
-	"github.com/onepiece010938/Line2GoogleDriveBot/internal/app"
+	"github.com/onepiece010938/Line2GoogleDriveBot/server"
 )
 
-var (
-	ginLambda        *ginadapter.GinLambda
-	cacheLambda      *cache.Cache
-	lineClientLambda *linebot.Client
-	ssmsvc           *ssm.SSM
-)
+var ginLambda *ginadapter.GinLambda
 
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	return ginLambda.ProxyWithContext(ctx, request)
 }
 
 func main() {
-	// dynamodb.Dynamodb_main()
-	deploy := os.Getenv("DEPLOY_PLATFORM")
-	if deploy == "lambda" {
-		log.Println("deploy:", deploy)
-		rootCtx, _ := context.WithCancel(context.Background()) //nolint
-		ssmsvc = ssm.NewSSM()
-
-		lineSecret, err := ssmsvc.FindParameter(rootCtx, ssmsvc.Client, "BAOSAVE_CHANNEL_SECRET")
-		if err != nil {
-			log.Println(err)
-		}
-		log.Println(lineSecret)
-
-		lineAccessToken, err := ssmsvc.FindParameter(rootCtx, ssmsvc.Client, "BAOSAVE_CHANNEL_ACCESS_TOKEN")
-		if err != nil {
-			log.Println(err)
-		}
-		lineClientLambda, err = linebot.New(lineSecret, lineAccessToken)
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println("LineBot Create Success")
-
-		cacheLambda = cache.NewCache(cache.InitBigCache(rootCtx))
-
-		app := app.NewApplication(rootCtx, cacheLambda, lineClientLambda)
-		ginRouter := server.InitRouter(rootCtx, app)
-		ginLambda = ginadapter.New(ginRouter)
-
+	// env GIN_MODE="release"
+	if gin.Mode() == gin.ReleaseMode {
+		log.Println("Run on Lambda")
+		ginLambda = server.NewGinLambda()
 		lambda.Start(Handler)
-	} else {
-		log.Println("deploy: local")
-		server.StartServer()
+	} else if gin.Mode() == gin.DebugMode {
+		log.Println("Debug mode run on local")
+		server.StartNgrokServer()
+
 	}
 
 }

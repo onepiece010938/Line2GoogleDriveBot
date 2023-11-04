@@ -23,3 +23,7 @@ go.work
 .env
 shared-local-instance.db
 token.json
+sec.json
+/tmp/*
+!tmp/.gitkeep
+*.txt

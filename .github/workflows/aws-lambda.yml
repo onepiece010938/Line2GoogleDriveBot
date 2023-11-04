@@ -22,15 +22,24 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.19' # The Go version to download (if necessary) and use.
-
+          go-version: '1.21' # The Go version to download (if necessary) and use.
+          cache: false
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         # golangci-lint didn't merge below PR yet
         with:
-          version: v1.53
+          version: v1.54
           args: --timeout 3m --verbose
         #   output-file: golangci-lint.out
+      - name: Setup DynamoDB Local
+        uses: rrainn/dynamodb-action@v2.0.1
+        with:
+          dbPath: # undefined by default, if this is undefined inMemory will be used
+          sharedDb: # undefined by default
+          delayTransientStatuses: # undefined by default
+          optimizeDbBeforeStartup: # undefined by default
+          port: 8000
+          cors: '*'
 
       - name: Run testing
         run: go test -v ./... -race -coverprofile=coverage.out -covermode=atomic -json > report.json

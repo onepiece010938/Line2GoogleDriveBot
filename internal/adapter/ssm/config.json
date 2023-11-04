@@ -1,3 +1,4 @@
 {
-    "ParameterName": "parameter-name"
+    "MockChannelSecret":"secret-name",
+    "MockChannelAccessToken":"token-name"
 }

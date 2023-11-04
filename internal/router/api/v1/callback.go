@@ -1,25 +1,19 @@
 package v1
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
-	"github.com/line/line-bot-sdk-go/linebot"
+	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"github.com/onepiece010938/Line2GoogleDriveBot/internal/app"
-	"golang.org/x/oauth2"
+	domainDrive "github.com/onepiece010938/Line2GoogleDriveBot/internal/domain/drive"
 )
-
-type LineHandler struct {
-	bot *linebot.Client
-}
 
 func Callback(app *app.Application) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Println("In Callback2")
-		log.Println(c.Request)
 		ctx := c.Request.Context()
 		events, err := app.LineBotClient.ParseRequest(c.Request)
 		if err != nil {
@@ -32,464 +26,392 @@ func Callback(app *app.Application) gin.HandlerFunc {
 			}
 			return
 		}
-		lineHandler := LineHandler{bot: app.LineBotClient}
+
 		for _, event := range events {
-			log.Printf("Got event %v", event)
-			switch event.Type {
-			case linebot.EventTypeMessage:
+			// Get user Line ID
+			lineID := event.Source.UserID
+			// Handle Button Postback
+			if event.Type == linebot.EventTypePostback {
+				// 如果是 Postback 事件，取得 postback 資料
+				postbackData := event.Postback.Data
+				log.Printf("Postback data: %s", postbackData)
+				// 解析 postback 資料
+				values, err := url.ParseQuery(postbackData)
+				if err != nil {
+					log.Printf("Error parsing postback data: %v", err)
+					return
+				}
+				// 取得特定參數的值，setFolder || openFolder
+				action := values.Get("action")
+				folderID := values.Get("folderID")
+
+				// 在這裡可以根據 action 和 FolderID 做相應的處理
+				log.Printf("Action: %s, FolderID: %s", action, folderID)
+				if action == "openFolder" {
+					res, err := app.DriveService.ListSelectedFolderCarousel(ctx, lineID, folderID)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					if _, err := app.LineBotClient.ReplyMessage(
+						event.ReplyToken,
+						linebot.NewFlexMessage("打開資料夾", res.CarouselContainer),
+					).Do(); err != nil {
+						log.Println(err)
+						return
+					}
+				}
+				if action == "setFolder" {
+					err := app.DriveService.SetUploadPath(ctx, lineID, folderID)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("成功設定上傳路徑")).Do(); err != nil {
+						log.Println(err)
+					}
+					return
+
+				}
+			}
+			if event.Type == linebot.EventTypeMessage {
 				switch message := event.Message.(type) {
 				case *linebot.TextMessage:
-					if err := lineHandler.handleText(ctx, app, message, event.ReplyToken, event.Source); err != nil {
-						log.Print(err)
+					if message.Text == "[登入]" {
+						// fmt.Println("Linebot GET", lineID)
+						// profile, _ := app.LineBotClient.GetProfile(lineID).Do()
+						// fmt.Println("Hi~ ", profile.DisplayName)
+
+						authURL := app.DriveService.LoginURL(ctx, lineID)
+						if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(authURL)).Do(); err != nil {
+							log.Println(err)
+						}
+						return
 					}
+					if message.Text == "list" {
+						res, err := app.DriveService.ListFiles(ctx, lineID)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(fmt.Sprintln(res))).Do(); err != nil {
+							log.Println(err)
+						}
+						return
+					}
+					if message.Text == "list folder" {
+						res, err := app.DriveService.ListMyDriveFolders(ctx, lineID)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(fmt.Sprintln(res))).Do(); err != nil {
+							log.Println(err)
+						}
+						return
+					}
+					if message.Text == "list shared" {
+						res, err := app.DriveService.ListSharedFolders(ctx, lineID)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(fmt.Sprintln(res))).Do(); err != nil {
+							log.Println(err)
+						}
+						return
+					}
+					if message.Text == "flex carousel" {
+
+						contents := &linebot.CarouselContainer{
+							Type: linebot.FlexContainerTypeCarousel,
+							Contents: []*linebot.BubbleContainer{
+								{
+									Type: linebot.FlexContainerTypeBubble,
+									Body: &linebot.BoxComponent{
+										Type:   linebot.FlexComponentTypeBox,
+										Layout: linebot.FlexBoxLayoutTypeVertical,
+										Contents:
+										// append(title, otherComponents...),
+										[]linebot.FlexComponent{
+
+											&linebot.TextComponent{
+												Type:   linebot.FlexComponentTypeText,
+												Text:   "FOLDER",
+												Weight: linebot.FlexTextWeightTypeBold,
+												Color:  "#1DB446",
+												Size:   linebot.FlexTextSizeTypeSm,
+											},
+											&linebot.TextComponent{
+												Type:   linebot.FlexComponentTypeText,
+												Text:   "Folder Name",
+												Weight: linebot.FlexTextWeightTypeBold,
+												Size:   linebot.FlexTextSizeTypeXxl,
+												Margin: linebot.FlexComponentMarginTypeMd,
+											},
+											&linebot.TextComponent{
+												Type:  linebot.FlexComponentTypeText,
+												Text:  "/path/to/floder",
+												Size:  linebot.FlexTextSizeTypeXs,
+												Color: "#aaaaaa",
+												Wrap:  true,
+											},
+											&linebot.SeparatorComponent{
+												Type:   linebot.FlexComponentTypeSeparator,
+												Margin: linebot.FlexComponentMarginTypeXxl,
+											},
+											&linebot.BoxComponent{
+												Type:    linebot.FlexComponentTypeBox,
+												Layout:  linebot.FlexBoxLayoutTypeVertical,
+												Margin:  linebot.FlexComponentMarginTypeXxl,
+												Spacing: linebot.FlexComponentSpacingTypeSm,
+												Contents: []linebot.FlexComponent{
+													&linebot.BoxComponent{
+														Type:   linebot.FlexComponentTypeBox,
+														Layout: linebot.FlexBoxLayoutTypeHorizontal,
+														Contents: []linebot.FlexComponent{
+															&linebot.TextComponent{
+																Type:       linebot.FlexComponentTypeText,
+																Text:       "Folder1",
+																Size:       linebot.FlexTextSizeTypeSm,
+																Color:      "#555555",
+																Decoration: linebot.FlexTextDecorationTypeUnderline,
+																MaxLines:   linebot.IntPtr(25),
+																Align:      linebot.FlexComponentAlignTypeStart,
+																Margin:     linebot.FlexComponentMarginTypeNone,
+																Gravity:    linebot.FlexComponentGravityTypeCenter,
+																Flex:       linebot.IntPtr(0),
+															},
+															&linebot.FillerComponent{
+																Type: linebot.FlexComponentTypeFiller,
+															},
+															&linebot.ButtonComponent{
+																Type: linebot.FlexComponentTypeButton,
+																Action: &linebot.PostbackAction{
+																	Label:       "進入資料夾",
+																	Data:        "folderid1",
+																	DisplayText: "進入Folder1",
+																},
+																Style:      linebot.FlexButtonStyleTypeLink,
+																Height:     linebot.FlexButtonHeightTypeSm,
+																Gravity:    linebot.FlexComponentGravityTypeCenter,
+																Flex:       linebot.IntPtr(0),
+																AdjustMode: linebot.FlexComponentAdjustModeTypeShrinkToFit,
+															},
+														},
+													},
+													&linebot.BoxComponent{
+														Type:   linebot.FlexComponentTypeBox,
+														Layout: linebot.FlexBoxLayoutTypeHorizontal,
+														Contents: []linebot.FlexComponent{
+															&linebot.TextComponent{
+																Type:       linebot.FlexComponentTypeText,
+																Text:       "Folder2",
+																Size:       linebot.FlexTextSizeTypeSm,
+																Color:      "#555555",
+																Decoration: linebot.FlexTextDecorationTypeUnderline,
+																MaxLines:   linebot.IntPtr(25),
+																Align:      linebot.FlexComponentAlignTypeStart,
+																Margin:     linebot.FlexComponentMarginTypeNone,
+																Gravity:    linebot.FlexComponentGravityTypeCenter,
+																Flex:       linebot.IntPtr(0),
+															},
+															&linebot.FillerComponent{
+																Type: linebot.FlexComponentTypeFiller,
+															},
+															&linebot.ButtonComponent{
+																Type: linebot.FlexComponentTypeButton,
+																Action: &linebot.PostbackAction{
+																	Label:       "進入資料夾",
+																	Data:        "folderid2",
+																	DisplayText: "進入Folder2",
+																},
+																Style:      linebot.FlexButtonStyleTypeLink,
+																Height:     linebot.FlexButtonHeightTypeSm,
+																Gravity:    linebot.FlexComponentGravityTypeCenter,
+																Flex:       linebot.IntPtr(0),
+																AdjustMode: linebot.FlexComponentAdjustModeTypeShrinkToFit,
+															},
+														},
+													},
+												},
+											},
+											// Separator
+											&linebot.SeparatorComponent{
+												Margin: linebot.FlexComponentMarginTypeXxl,
+											},
+											// Files
+											&linebot.BoxComponent{
+												Type:   linebot.FlexComponentTypeBox,
+												Layout: linebot.FlexBoxLayoutTypeHorizontal,
+												Margin: linebot.FlexComponentMarginTypeXxl,
+												Contents: []linebot.FlexComponent{
+													&linebot.TextComponent{
+														Type:  linebot.FlexComponentTypeText,
+														Text:  "Total Files",
+														Size:  linebot.FlexTextSizeTypeSm,
+														Color: "#555555",
+														Flex:  linebot.IntPtr(0),
+													},
+													&linebot.TextComponent{
+														Type:  linebot.FlexComponentTypeText,
+														Text:  "3",
+														Size:  linebot.FlexTextSizeTypeSm,
+														Color: "#111111",
+														Align: linebot.FlexComponentAlignTypeEnd,
+													},
+												},
+											},
+											&linebot.BoxComponent{
+												Type:   linebot.FlexComponentTypeBox,
+												Layout: linebot.FlexBoxLayoutTypeHorizontal,
+												Contents: []linebot.FlexComponent{
+													&linebot.TextComponent{
+														Type:  linebot.FlexComponentTypeText,
+														Text:  "FILE1",
+														Size:  linebot.FlexTextSizeTypeSm,
+														Color: "#555555",
+													},
+												},
+											},
+											&linebot.BoxComponent{
+												Type:   linebot.FlexComponentTypeBox,
+												Layout: linebot.FlexBoxLayoutTypeHorizontal,
+												Contents: []linebot.FlexComponent{
+													&linebot.TextComponent{
+														Type:  linebot.FlexComponentTypeText,
+														Text:  "FILE2",
+														Size:  linebot.FlexTextSizeTypeSm,
+														Color: "#555555",
+													},
+												},
+											},
+											&linebot.BoxComponent{
+												Type:   linebot.FlexComponentTypeBox,
+												Layout: linebot.FlexBoxLayoutTypeHorizontal,
+												Contents: []linebot.FlexComponent{
+													&linebot.TextComponent{
+														Type:  linebot.FlexComponentTypeText,
+														Text:  "FILE3",
+														Size:  linebot.FlexTextSizeTypeSm,
+														Color: "#555555",
+													},
+												},
+											},
+											// Separator
+											&linebot.SeparatorComponent{
+												Margin: linebot.FlexComponentMarginTypeXxl,
+											},
+											// Button
+											&linebot.BoxComponent{
+												Type:   linebot.FlexComponentTypeBox,
+												Layout: linebot.FlexBoxLayoutTypeHorizontal,
+												Margin: linebot.FlexComponentMarginTypeMd,
+												Contents: []linebot.FlexComponent{
+													&linebot.ButtonComponent{
+														Type: linebot.FlexComponentTypeButton,
+														Action: &linebot.PostbackAction{
+															Label:       "設為上傳資料夾",
+															Data:        "folderid",
+															DisplayText: "設為上傳資料夾",
+														},
+														Style:      linebot.FlexButtonStyleTypePrimary,
+														AdjustMode: linebot.FlexComponentAdjustModeTypeShrinkToFit,
+													},
+												},
+											},
+										},
+									},
+									Styles: &linebot.BubbleStyle{
+										Footer: &linebot.BlockStyle{
+											Separator: true,
+										},
+									},
+								},
+							},
+						}
+						if _, err := app.LineBotClient.ReplyMessage(
+							event.ReplyToken,
+							linebot.NewFlexMessage("Flex message alt text", contents),
+						).Do(); err != nil {
+							log.Println(err)
+							return
+						}
+					}
+					if message.Text == "[我の雲端硬碟]" {
+						res, err := app.DriveService.ListFolderCarousel(ctx, lineID, domainDrive.PersonalFolder)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err := app.LineBotClient.ReplyMessage(
+							event.ReplyToken,
+							linebot.NewFlexMessage("測試Flex Carousel", res.CarouselContainer),
+						).Do(); err != nil {
+							log.Println(err)
+							return
+						}
+					}
+					if message.Text == "[共用硬碟]" {
+						res, err := app.DriveService.ListFolderCarousel(ctx, lineID, domainDrive.SharedFolder)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err := app.LineBotClient.ReplyMessage(
+							event.ReplyToken,
+							linebot.NewFlexMessage("測試Flex Carousel", res.CarouselContainer),
+						).Do(); err != nil {
+							log.Println(err)
+							return
+						}
+					}
+					if message.Text == "[上傳路徑]" {
+						path, err := app.DriveService.GetUploadPath(ctx, lineID)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+						if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(path)).Do(); err != nil {
+							log.Println(err)
+						}
+						return
+					}
+
+					// samplePK, err := app.SampleService.Sample(ctx, message.Text)
+					// if err != nil {
+					// 	log.Println(err)
+					// 	return
+					// }
+					// if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(samplePK)).Do(); err != nil {
+					// 	log.Println(err)
+					// }
 
 				case *linebot.FileMessage:
-					if err := lineHandler.handleFile(message, event.ReplyToken); err != nil {
-						log.Print(err)
+					content, err := app.LineBotClient.GetMessageContent(message.ID).Do()
+					if err != nil {
+						log.Println(err)
+						return
 					}
-				default:
-					log.Printf("Unknown message: %v", message)
+
+					log.Printf("Got file: %s", content.ContentType)
+					fmt.Printf("File `%s` (%d bytes) received.", message.FileName, message.FileSize)
+
+					err = app.DriveService.UploadFile(ctx, lineID, message.FileName, content.Content)
+					if err != nil {
+						log.Println(err)
+						return
+					}
+					if _, err = app.LineBotClient.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("成功上傳: "+message.FileName)).Do(); err != nil {
+						log.Println(err)
+					}
+
 				}
-			case linebot.EventTypeFollow:
-				if err := lineHandler.replyText(event.ReplyToken, "Got followed event"); err != nil {
-					log.Print(err)
-				}
-			case linebot.EventTypeUnfollow:
-				log.Printf("Unfollowed this bot: %v", event)
-			case linebot.EventTypeJoin:
-				if err := lineHandler.replyText(event.ReplyToken, "Joined "+string(event.Source.Type)); err != nil {
-					log.Print(err)
-				}
-			case linebot.EventTypeLeave:
-				log.Printf("Left: %v", event)
-			case linebot.EventTypePostback:
-				data := event.Postback.Data
-				if data == "DATE" || data == "TIME" || data == "DATETIME" {
-					data += fmt.Sprintf("(%v)", *event.Postback.Params)
-				}
-				if err := lineHandler.replyText(event.ReplyToken, "Got postback: "+data); err != nil {
-					log.Print(err)
-				}
-			case linebot.EventTypeBeacon:
-				if err := lineHandler.replyText(event.ReplyToken, "Got beacon: "+event.Beacon.Hwid); err != nil {
-					log.Print(err)
-				}
-			default:
-				log.Printf("Unknown event: %v", event)
+
 			}
+
 		}
-		//events, err := myBot.ParseRequest(c.Request)
-		// ctx := c.Request.Context()
-		// err := AnalyzeService.CreateAnalyze(ctx, analyze.CreateAnalyzeParm{})
-		// if err != nil {
-		// 	fmt.Println(err)
-		// }
-		// c.JSON(http.StatusOK, "")
 
 	}
 
 }
-
-func (l *LineHandler) handleText(ctx context.Context, app *app.Application, message *linebot.TextMessage, replyToken string, source *linebot.EventSource) error {
-	switch message.Text {
-	case "login":
-		// refresh token只有第一次AccessTypeOffline的時候拿的到
-		// 如果要每次都取得，要加ApprovalForce
-		authURL := CONFIGG.AuthCodeURL("state-token", oauth2.AccessTypeOffline) //oauth2.ApprovalForce
-		return l.replyText(replyToken, authURL)
-	case "sample":
-		test, err := app.AnalyzeService.AnalyzeTest(ctx)
-		if err != nil {
-			return l.replyText(replyToken, "ERROR")
-		}
-		return l.replyText(replyToken, test)
-	case "profile":
-		if source.UserID != "" {
-			profile, err := l.bot.GetProfile(source.UserID).Do()
-			if err != nil {
-				return l.replyText(replyToken, err.Error())
-			}
-			if _, err := l.bot.ReplyMessage(
-				replyToken,
-				linebot.NewTextMessage("User ID: "+source.UserID),
-				linebot.NewTextMessage("Display name: "+profile.DisplayName),
-				linebot.NewTextMessage("Status message: "+profile.StatusMessage),
-			).Do(); err != nil {
-				return err
-			}
-		} else {
-			return l.replyText(replyToken, "Bot can't use profile API without user ID")
-		}
-
-	case "confirm":
-		template := linebot.NewConfirmTemplate(
-			"Do it?",
-			linebot.NewMessageAction("Yes", "Yes!"),
-			linebot.NewMessageAction("No", "No!"),
-		)
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewTemplateMessage("Confirm alt text", template),
-		).Do(); err != nil {
-			return err
-		}
-
-	case "datetime":
-		template := linebot.NewButtonsTemplate(
-			"", "", "Select date / time !",
-			linebot.NewDatetimePickerAction("date", "DATE", "date", "", "", ""),
-			linebot.NewDatetimePickerAction("time", "TIME", "time", "", "", ""),
-			linebot.NewDatetimePickerAction("datetime", "DATETIME", "datetime", "", "", ""),
-		)
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewTemplateMessage("Datetime pickers alt text", template),
-		).Do(); err != nil {
-			return err
-		}
-	case "flex":
-		// {
-		//   "type": "bubble",
-		//   "body": {
-		//     "type": "box",
-		//     "layout": "horizontal",
-		//     "contents": [
-		//       {
-		//         "type": "text",
-		//         "text": "Hello,"
-		//       },
-		//       {
-		//         "type": "text",
-		//         "text": "World!"
-		//       }
-		//     ]
-		//   }
-		// }
-		contents := &linebot.BubbleContainer{
-			Type: linebot.FlexContainerTypeBubble,
-			Body: &linebot.BoxComponent{
-				Type:   linebot.FlexComponentTypeBox,
-				Layout: linebot.FlexBoxLayoutTypeHorizontal,
-				Contents: []linebot.FlexComponent{
-					&linebot.TextComponent{
-						Type: linebot.FlexComponentTypeText,
-						Text: "Hello,",
-					},
-					&linebot.TextComponent{
-						Type: linebot.FlexComponentTypeText,
-						Text: "World!",
-					},
-				},
-			},
-		}
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewFlexMessage("Flex message alt text", contents),
-		).Do(); err != nil {
-			return err
-		}
-	case "flex carousel":
-		// {
-		//   "type": "carousel",
-		//   "contents": [
-		//     {
-		//       "type": "bubble",
-		//       "body": {
-		//         "type": "box",
-		//         "layout": "vertical",
-		//         "contents": [
-		//           {
-		//             "type": "text",
-		//             "text": "First bubble"
-		//           }
-		//         ]
-		//       }
-		//     },
-		//     {
-		//       "type": "bubble",
-		//       "body": {
-		//         "type": "box",
-		//         "layout": "vertical",
-		//         "contents": [
-		//           {
-		//             "type": "text",
-		//             "text": "Second bubble"
-		//           }
-		//         ]
-		//       }
-		//     }
-		//   ]
-		// }
-		contents := &linebot.CarouselContainer{
-			Type: linebot.FlexContainerTypeCarousel,
-			Contents: []*linebot.BubbleContainer{
-				{
-					Type: linebot.FlexContainerTypeBubble,
-					Body: &linebot.BoxComponent{
-						Type:   linebot.FlexComponentTypeBox,
-						Layout: linebot.FlexBoxLayoutTypeVertical,
-						Contents: []linebot.FlexComponent{
-							&linebot.TextComponent{
-								Type: linebot.FlexComponentTypeText,
-								Text: "First bubble",
-							},
-						},
-					},
-				},
-				{
-					Type: linebot.FlexContainerTypeBubble,
-					Body: &linebot.BoxComponent{
-						Type:   linebot.FlexComponentTypeBox,
-						Layout: linebot.FlexBoxLayoutTypeVertical,
-						Contents: []linebot.FlexComponent{
-							&linebot.TextComponent{
-								Type: linebot.FlexComponentTypeText,
-								Text: "Second bubble",
-							},
-						},
-					},
-				},
-			},
-		}
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewFlexMessage("Flex message alt text", contents),
-		).Do(); err != nil {
-			return err
-		}
-	case "flex json":
-		jsonString := `{
-  "type": "bubble",
-  "hero": {
-    "type": "image",
-    "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
-    "size": "full",
-    "aspectRatio": "20:13",
-    "aspectMode": "cover",
-    "action": {
-      "type": "uri",
-      "uri": "http://linecorp.com/"
-    }
-  },
-  "body": {
-    "type": "box",
-    "layout": "vertical",
-    "contents": [
-      {
-        "type": "text",
-        "text": "Brown Cafe",
-        "weight": "bold",
-        "size": "xl"
-      },
-      {
-        "type": "box",
-        "layout": "baseline",
-        "margin": "md",
-        "contents": [
-          {
-            "type": "icon",
-            "size": "sm",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"
-          },
-          {
-            "type": "icon",
-            "size": "sm",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"
-          },
-          {
-            "type": "icon",
-            "size": "sm",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"
-          },
-          {
-            "type": "icon",
-            "size": "sm",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"
-          },
-          {
-            "type": "icon",
-            "size": "sm",
-            "url": "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gray_star_28.png"
-          },
-          {
-            "type": "text",
-            "text": "4.0",
-            "size": "sm",
-            "color": "#999999",
-            "margin": "md",
-            "flex": 0
-          }
-        ]
-      },
-      {
-        "type": "box",
-        "layout": "vertical",
-        "margin": "lg",
-        "spacing": "sm",
-        "contents": [
-          {
-            "type": "box",
-            "layout": "baseline",
-            "spacing": "sm",
-            "contents": [
-              {
-                "type": "text",
-                "text": "Place",
-                "color": "#aaaaaa",
-                "size": "sm",
-                "flex": 1
-              },
-              {
-                "type": "text",
-                "text": "Miraina Tower, 4-1-6 Shinjuku, Tokyo",
-                "wrap": true,
-                "color": "#666666",
-                "size": "sm",
-                "flex": 5
-              }
-            ]
-          },
-          {
-            "type": "box",
-            "layout": "baseline",
-            "spacing": "sm",
-            "contents": [
-              {
-                "type": "text",
-                "text": "Time",
-                "color": "#aaaaaa",
-                "size": "sm",
-                "flex": 1
-              },
-              {
-                "type": "text",
-                "text": "10:00 - 23:00",
-                "wrap": true,
-                "color": "#666666",
-                "size": "sm",
-                "flex": 5
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "footer": {
-    "type": "box",
-    "layout": "vertical",
-    "spacing": "sm",
-    "contents": [
-      {
-        "type": "button",
-        "style": "link",
-        "height": "sm",
-        "action": {
-          "type": "uri",
-          "label": "CALL",
-          "uri": "https://linecorp.com"
-        }
-      },
-      {
-        "type": "button",
-        "style": "link",
-        "height": "sm",
-        "action": {
-          "type": "uri",
-          "label": "WEBSITE",
-          "uri": "https://linecorp.com",
-          "altUri": {
-            "desktop": "https://line.me/ja/download"
-          }
-        }
-      },
-      {
-        "type": "spacer",
-        "size": "sm"
-      }
-    ],
-    "flex": 0
-  }
-}`
-		contents, err := linebot.UnmarshalFlexMessageJSON([]byte(jsonString))
-		if err != nil {
-			return err
-		}
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewFlexMessage("Flex message alt text", contents),
-		).Do(); err != nil {
-			return err
-		}
-	case "imagemap":
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewImagemapMessage(
-				"appBaseURL"+"/static/rich",
-				"Imagemap alt text",
-				linebot.ImagemapBaseSize{Width: 1040, Height: 1040},
-				linebot.NewURIImagemapAction("LINE Store Manga", "https://store.line.me/family/manga/en", linebot.ImagemapArea{X: 0, Y: 0, Width: 520, Height: 520}),
-				linebot.NewURIImagemapAction("LINE Store Music", "https://store.line.me/family/music/en", linebot.ImagemapArea{X: 520, Y: 0, Width: 520, Height: 520}),
-				linebot.NewURIImagemapAction("LINE Store Play", "https://store.line.me/family/play/en", linebot.ImagemapArea{X: 0, Y: 520, Width: 520, Height: 520}),
-				linebot.NewMessageImagemapAction("URANAI!", "URANAI!", linebot.ImagemapArea{X: 520, Y: 520, Width: 520, Height: 520}),
-			),
-		).Do(); err != nil {
-			return err
-		}
-
-	default:
-		log.Printf("Echo message to %s: %s", replyToken, message.Text)
-		if _, err := l.bot.ReplyMessage(
-			replyToken,
-			linebot.NewTextMessage(message.Text),
-		).Do(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (l *LineHandler) handleFile(message *linebot.FileMessage, replyToken string) error {
-	return l.replyText(replyToken, fmt.Sprintf("File `%s` (%d bytes) received.", message.FileName, message.FileSize))
-}
-
-func (l *LineHandler) replyText(replyToken, text string) error {
-	if _, err := l.bot.ReplyMessage(
-		replyToken,
-		linebot.NewTextMessage(text),
-	).Do(); err != nil {
-		return err
-	}
-	return nil
-}
-
-/*
-func (l *LineHandler) handleHeavyContent(messageID string, callback func(*os.File) error) error {
-	content, err := l.bot.GetMessageContent(messageID).Do()
-	if err != nil {
-		return err
-	}
-	defer content.Content.Close()
-	log.Printf("Got file: %s", content.ContentType)
-	originalContent, err := saveContent(content.Content)
-	if err != nil {
-		return err
-	}
-	return callback(originalContent)
-}
-
-func saveContent(content io.ReadCloser) (*os.File, error) {
-	file, err := ioutil.TempFile("downloadDir", "")
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, content)
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Saved %s", file.Name())
-	return file, nil
-}
-*/
