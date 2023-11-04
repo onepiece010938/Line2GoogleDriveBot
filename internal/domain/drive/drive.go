@@ -6,10 +6,10 @@ import (
 	"os"
 )
 
-// Save content to ./tmp
+// Save content to ./tmp , /tmp for lambda
 func SaveContent(content io.ReadCloser) (*os.File, error) {
 	defer content.Close()
-	file, err := os.CreateTemp("./tmp", "")
+	file, err := os.CreateTemp("/tmp", "")
 	if err != nil {
 		return nil, err
 	}
