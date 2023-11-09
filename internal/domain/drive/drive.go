@@ -6,10 +6,24 @@ import (
 	"os"
 )
 
-// Save content to ./tmp , /tmp for lambda
+// Save content to  "./tmp" or "/tmp"
 func SaveContent(content io.ReadCloser) (*os.File, error) {
 	defer content.Close()
-	file, err := os.CreateTemp("/tmp", "")
+
+	// Check if it is in lambda
+	tmpDir := "/tmp"
+	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+		// If not in lambda save to ./tmp
+		tmpDir = "./tmp"
+		if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+			// If ./tmp is not exist, create folder
+			if err := os.Mkdir(tmpDir, os.ModePerm); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	file, err := os.CreateTemp(tmpDir, "")
 	if err != nil {
 		return nil, err
 	}
